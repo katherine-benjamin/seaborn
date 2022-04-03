@@ -565,7 +565,6 @@ class Plotter:
                     common.frame[dim], facetspec.get(key)
                 )
                 facetspec[f"{dim}_name"] = common.names[dim]
-                facetspec[f"{dim}_data"] = common.frame[dim]
 
         self._subplots = subplots = Subplots(subplotspec, facetspec, pairspec)
 

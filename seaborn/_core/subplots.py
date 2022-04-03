@@ -4,8 +4,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from seaborn._core.rules import categorical_order
-
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -49,8 +47,6 @@ class Subplots:
         err = None
 
         facet_vars = facet_spec.get("variables", [])
-        pair_vars = pair_spec.get("variables", [])
-        print(facet_vars, pair_vars)
 
         if facet_spec.get("wrap") and {"col", "row"} <= set(facet_vars):
             err = "Cannot wrap facets when specifying both `col` and `row`."
@@ -64,7 +60,7 @@ class Subplots:
 
         collisions = {"x": ["columns", "rows"], "y": ["rows", "columns"]}
         for pair_axis, (multi_dim, wrap_dim) in collisions.items():
-            if pair_axis not in pair_vars:
+            if pair_axis not in pair_spec:
                 continue
             elif multi_dim[:3] in facet_vars:
                 err = f"Cannot facet the {multi_dim} while pairing on `{pair_axis}``."
@@ -83,9 +79,7 @@ class Subplots:
 
             facet_vars = facet_spec.get("variables", {})
             if dim in facet_vars:
-                self.grid_dimensions[dim] = categorical_order(
-                    facet_spec.get(f"{dim}_data", []), facet_spec.get(f"{dim}_order"),
-                )
+                self.grid_dimensions[dim] = facet_spec[f"{dim}_order"]
             elif axis in pair_spec:
                 self.grid_dimensions[dim] = [None for _ in pair_spec[axis]]
             else:

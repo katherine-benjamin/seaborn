@@ -11,32 +11,40 @@ class TestSpecificationChecks:
     def test_both_facets_and_wrap(self):
 
         err = "Cannot wrap facets when specifying both `col` and `row`."
+        facet_spec = {"wrap": 3, "variables": {"col": "a", "row": "b"}}
         with pytest.raises(RuntimeError, match=err):
-            Subplots({}, {"wrap": 3, "variables": {"col": "a", "row": "b"}}, {})
+            Subplots({}, facet_spec, {})
 
     def test_cartesian_xy_pairing_and_wrap(self):
 
         err = "Cannot wrap subplots when pairing on both `x` and `y`."
+        pair_spec = {"x": ["a", "b"], "y": ["y", "z"], "wrap": 3}
         with pytest.raises(RuntimeError, match=err):
-            Subplots({}, {}, {"x": ["x", "y"], "y": ["a", "b"], "wrap": 3})
+            Subplots({}, {}, pair_spec)
 
     def test_col_facets_and_x_pairing(self):
 
         err = "Cannot facet the columns while pairing on `x`."
+        facet_spec = {"variables": {"col": "a"}}
+        pair_spec = {"x": ["x", "y"]}
         with pytest.raises(RuntimeError, match=err):
-            Subplots({}, {"variables": {"col": "a"}}, {"x": ["x", "y"]})
+            Subplots({}, facet_spec, pair_spec)
 
     def test_wrapped_columns_and_y_pairing(self):
 
         err = "Cannot wrap the columns while pairing on `y`."
+        facet_spec = {"variables": {"col": "a"}, "wrap": 2}
+        pair_spec = {"y": ["x", "y"]}
         with pytest.raises(RuntimeError, match=err):
-            Subplots({}, {"wrap": 2, "variables": {"col": "a"}}, {"y": ["x", "y"]})
+            Subplots({}, facet_spec, pair_spec)
 
     def test_wrapped_x_pairing_and_facetd_rows(self):
 
         err = "Cannot wrap the columns while faceting the rows."
+        facet_spec = {"variables": {"row": "a"}}
+        pair_spec = {"x": ["x", "y"], "wrap": 2}
         with pytest.raises(RuntimeError, match=err):
-            Subplots({}, {"row": "a"}, {"x": ["x", "y", "z"], "wrap": 2})
+            Subplots({}, facet_spec, pair_spec)
 
 
 class TestSubplotSpec:
@@ -55,7 +63,8 @@ class TestSubplotSpec:
 
         key = "a"
         order = list("abc")
-        s = Subplots({}, {"col": key, "col_order": order}, {})
+        spec = {"variables": {"col": key}, "col_order": order}
+        s = Subplots({}, spec, {})
 
         assert s.n_subplots == len(order)
         assert s.subplot_spec["ncols"] == len(order)
@@ -70,8 +79,9 @@ class TestSubplotSpec:
         col_order = list("xy")
         row_order = list("xyz")
         spec = {
-            "col": col_key, "col_order": col_order,
-            "row": row_key, "row_order": row_order,
+            "variables": {"col": col_key, "row": row_key},
+            "col_order": col_order, "row_order": row_order,
+
         }
         s = Subplots({}, spec, {})
 
@@ -86,7 +96,7 @@ class TestSubplotSpec:
         key = "b"
         wrap = 3
         order = list("abcde")
-        spec = {"col": key, "col_order": order, "wrap": wrap}
+        spec = {"variables": {"col": key}, "col_order": order, "wrap": wrap}
         s = Subplots({}, spec, {})
 
         assert s.n_subplots == len(order)
@@ -100,7 +110,7 @@ class TestSubplotSpec:
         key = "b"
         wrap = 3
         order = list("abcde")
-        spec = {"row": key, "row_order": order, "wrap": wrap}
+        spec = {"variables": {"row": key}, "row_order": order, "wrap": wrap}
         s = Subplots({}, spec, {})
 
         assert s.n_subplots == len(order)
@@ -114,7 +124,7 @@ class TestSubplotSpec:
         key = "b"
         order = list("abc")
         wrap = len(order) + 2
-        spec = {"col": key, "col_order": order, "wrap": wrap}
+        spec = {"variables": {"col": key}, "col_order": order, "wrap": wrap}
         s = Subplots({}, spec, {})
 
         assert s.n_subplots == len(order)
@@ -186,7 +196,8 @@ class TestSubplotSpec:
         y = ["x", "y", "z"]
         key = "a"
         order = list("abc")
-        s = Subplots({}, {"col": key, "col_order": order}, {"y": y})
+        facet_spec = {"variables": {"col": key}, "col_order": order}
+        s = Subplots({}, facet_spec, {"y": y})
 
         assert s.n_subplots == len(order) * len(y)
         assert s.subplot_spec["ncols"] == len(order)
@@ -199,7 +210,8 @@ class TestSubplotSpec:
         x = ["f", "s"]
         key = "a"
         order = list("abc")
-        s = Subplots({}, {"row": key, "row_order": order}, {"x": x})
+        facet_spec = {"variables": {"row": key}, "row_order": order}
+        s = Subplots({}, facet_spec, {"x": x})
 
         assert s.n_subplots == len(order) * len(x)
         assert s.subplot_spec["ncols"] == len(x)
@@ -263,9 +275,9 @@ class TestSubplotElements:
 
         key = "a"
         order = list("abc")
-        specs = {dim: key, f"{dim}_order": order}, {}
-        s = Subplots({}, *specs)
-        s.init_figure(*specs)
+        spec = {"variables": {dim: key}, f"{dim}_order": order}
+        s = Subplots({}, spec, {})
+        s.init_figure(spec, {})
 
         assert len(s) == len(order)
 
@@ -284,7 +296,7 @@ class TestSubplotElements:
         key = "b"
         order = list("abc")
         wrap = len(order) - 1
-        spec = {dim: key, f"{dim}_order": order, "wrap": wrap}
+        spec = {"variables": {dim: key}, f"{dim}_order": order, "wrap": wrap}
         s = Subplots({}, spec, {})
         s.init_figure(spec, {})
 
@@ -316,8 +328,8 @@ class TestSubplotElements:
         col_order = list("ab")
         row_order = list("xyz")
         facet_spec = {
-            "col": col, "col_order": col_order,
-            "row": row, "row_order": row_order
+            "variables": {"col": col, "row": row},
+            "col_order": col_order, "row_order": row_order,
         }
         s = Subplots({}, facet_spec, {})
         s.init_figure(facet_spec, {})
@@ -451,7 +463,7 @@ class TestSubplotElements:
         other_var = {"x": "y", "y": "x"}[var]
         other_dim = {"col": "row", "row": "col"}[dim]
         order = list("abc")
-        facet_spec = {dim: "s", f"{dim}_order": order}
+        facet_spec = {"variables": {dim: "s"}, f"{dim}_order": order}
 
         pairings = ["x", "y", "t"]
         pair_spec = {var: pairings}
