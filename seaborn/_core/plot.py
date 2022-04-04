@@ -19,18 +19,32 @@ from seaborn._core.groupby import GroupBy
 from seaborn._core.properties import PROPERTIES, Property, Coordinate
 from seaborn.external.version import Version
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from typing import Literal, Any
-    from collections.abc import Callable, Generator, Hashable
-    from pandas import DataFrame, Series, Index
-    from matplotlib.axes import Axes
-    from matplotlib.artist import Artist
-    from matplotlib.figure import Figure, SubFigure
-    from seaborn._marks.base import Mark
-    from seaborn._stats.base import Stat
-    from seaborn._core.moves import Move
-    from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
+from typing import Any, Literal, TypedDict
+from collections.abc import Callable, Generator, Hashable
+from pandas import DataFrame, Series, Index
+from matplotlib.axes import Axes
+from matplotlib.artist import Artist
+from matplotlib.figure import Figure, SubFigure
+from seaborn._marks.base import Mark
+from seaborn._stats.base import Stat
+from seaborn._core.moves import Move
+from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
+
+
+class FacetSpec(TypedDict, total=False):
+
+    variables: dict[Literal["col", "row"], VariableSpec]
+    col_order: OrderSpec
+    row_order: OrderSpec
+    wrap: int | None
+
+
+class PairSpec(TypedDict, total=False):
+
+    variables: dict[str, VariableSpec]
+    structure: dict[str, str]
+    cartesian: bool
+    wrap: int | None
 
 
 class Plot:
@@ -42,8 +56,8 @@ class Plot:
     _scales: dict[str, ScaleSpec]
 
     _subplot_spec: dict[str, Any]
-    _facet_spec: dict[str, Any]
-    _pair_spec: dict[str, Any]
+    _facet_spec: FacetSpec
+    _pair_spec: PairSpec
 
     def __init__(
         self,
@@ -268,7 +282,7 @@ class Plot:
         # But maybe a different verb (e.g. Plot.spread) would be more clear?
         # Then Plot(data).pair(x=[...]) would show the given x vars vs all.
 
-        pair_spec: dict[str, Any] = {}
+        pair_spec: PairSpec = {}
 
         if x is None and y is None:
 
@@ -285,24 +299,19 @@ class Plot:
                 key for key in self._data.source_data
                 if key not in self._data.names.values()
             ]
-            for axis in "xy":
-                if axis not in self._data:
-                    pair_spec[axis] = all_unused_columns
-        else:
+            if "x" not in self._data:
+                x = all_unused_columns
+            if "y" not in self._data:
+                y = all_unused_columns
 
-            axes = {"x": x, "y": y}
-            for axis, arg in axes.items():
-                if arg is not None:
-                    if isinstance(arg, (str, int)):
-                        err = f"You must pass a sequence of variable keys to `{axis}`"
-                        raise TypeError(err)
-                    pair_spec[axis] = list(arg)
+        axes = {"x": [] if x is None else x, "y": [] if y is None else y}
 
         pair_spec["variables"] = {}
         pair_spec["structure"] = {}
+
         for axis in "xy":
             keys = []
-            for i, col in enumerate(pair_spec.get(axis, [])):
+            for i, col in enumerate(axes[axis]):
                 key = f"{axis}{i}"
                 keys.append(key)
                 pair_spec["variables"][key] = col
@@ -338,7 +347,8 @@ class Plot:
         if row is not None:
             variables["row"] = row
 
-        col_order = row_order = None
+        col_order: OrderSpec = None
+        row_order: OrderSpec = None
         if isinstance(order, dict):
             col_order = order.get("col")
             if col_order is not None:
@@ -352,14 +362,15 @@ class Plot:
             if row is not None:
                 row_order = list(order)
 
-        new = self._clone()
-        new._facet_spec.update({
-            "source": None,
+        spec: FacetSpec = {
             "variables": variables,
             "col_order": col_order,
             "row_order": row_order,
             "wrap": wrap,
-        })
+        }
+
+        new = self._clone()
+        new._facet_spec.update(spec)
 
         return new
 

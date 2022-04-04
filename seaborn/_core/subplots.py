@@ -53,14 +53,14 @@ class Subplots:
         elif (
             pair_spec.get("wrap")
             and pair_spec.get("cartesian", True)
-            and len(pair_spec.get("x", [])) > 1
-            and len(pair_spec.get("y", [])) > 1
+            and len(pair_spec.get("structure", {}).get("x", [])) > 1
+            and len(pair_spec.get("structure", {}).get("y", [])) > 1
         ):
             err = "Cannot wrap subplots when pairing on both `x` and `y`."
 
         collisions = {"x": ["columns", "rows"], "y": ["rows", "columns"]}
         for pair_axis, (multi_dim, wrap_dim) in collisions.items():
-            if pair_axis not in pair_spec:
+            if pair_axis not in pair_spec.get("structure", {}):
                 continue
             elif multi_dim[:3] in facet_vars:
                 err = f"Cannot facet the {multi_dim} while pairing on `{pair_axis}``."
@@ -80,8 +80,10 @@ class Subplots:
             facet_vars = facet_spec.get("variables", {})
             if dim in facet_vars:
                 self.grid_dimensions[dim] = facet_spec[f"{dim}_order"]
-            elif axis in pair_spec:
-                self.grid_dimensions[dim] = [None for _ in pair_spec[axis]]
+            elif axis in pair_spec.get("structure", {}):
+                self.grid_dimensions[dim] = [
+                    None for _ in pair_spec.get("structure", {})[axis]
+                ]
             else:
                 self.grid_dimensions[dim] = [None]
 
@@ -118,7 +120,7 @@ class Subplots:
             key = f"share{axis}"
             # Always use user-specified value, if present
             if key not in self.subplot_spec:
-                if axis in pair_spec:
+                if axis in pair_spec.get("structure", {}):
                     # Paired axes are shared along one dimension by default
                     if self.wrap in [None, 1] and pair_spec.get("cartesian", True):
                         val = axis_to_dim[axis]
@@ -240,7 +242,7 @@ class Subplots:
             for axis in "xy":
 
                 idx = {"x": j, "y": i}[axis]
-                if axis in pair_spec:
+                if axis in pair_spec.get("structure", {}):
                     key = f"{axis}{idx}"
                 else:
                     key = axis
