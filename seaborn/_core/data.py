@@ -41,8 +41,8 @@ class PlotData:
         Dictionary mapping plot variable names to unique data source identifiers.
 
     """
-    frame: DataFrame | None
-    frames: dict[tuple[str], DataFrame]
+    frame: DataFrame
+    frames: dict[tuple, DataFrame]
     names: dict[str, str | None]
     ids: dict[str, str | int]
     source_data: DataSource

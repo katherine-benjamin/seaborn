@@ -478,6 +478,10 @@ class Plot:
 
 class Plotter:
 
+    # TODO decide if we ever want these (Plot.plot(debug=True))?
+    _data: PlotData
+    _layers: list[dict]
+
     def __init__(self, pyplot=False):
 
         self.pyplot = pyplot
@@ -644,17 +648,19 @@ class Plotter:
 
     def _transform_coords(self, p: Plot, common: PlotData, layers: list[dict]) -> None:
 
-        variables = [v for v in p._variables if v[0] in "xy"]
-
-        for var in variables:
-
-            prop = Coordinate(var[0])
+        for var in p._variables:
 
             # Parse name to identify variable (x, y, xmin, etc.) and axis (x/y)
             # TODO should we have xmin0/xmin1 or x0min/x1min?
             m = re.match(r"^(?P<prefix>(?P<axis>[x|y])\d*).*", var)
+
+            if m is None:
+                continue
+
             prefix = m["prefix"]
             axis = m["axis"]
+
+            prop = Coordinate(axis)
 
             share_state = self._subplots.subplot_spec[f"share{axis}"]
 
@@ -769,7 +775,7 @@ class Plotter:
 
             if pair_vars:
                 data.frames = {}
-                data.frame = None
+                data.frame = data.frame.iloc[:0]  # TODO to simplify typing
 
             for coord_vars in iter_axes:
 
@@ -829,7 +835,7 @@ class Plotter:
         # Identify all of the variables that will be used at some point in the plot
         variables = set()
         for layer in layers:
-            if layer["data"].frame is None:
+            if layer["data"].frame.empty:
                 for df in layer["data"].frames.values():
                     variables.update(df.columns)
             else:
@@ -844,7 +850,7 @@ class Plotter:
             # Get the data all the distinct appearances of this variable.
             parts = []
             for layer in layers:
-                if layer["data"].frame is None:
+                if layer["data"].frame.empty:
                     for df in layer["data"].frames.values():
                         parts.append(df.get(var))
                 else:
@@ -1012,12 +1018,12 @@ class Plotter:
                 if (sub["x"] == x) and (sub["y"] == y):
                     subplots.append(sub)
 
-            if data.frame is None:
+            if data.frame.empty:
                 out_df = data.frames[(x, y)].copy()
             elif not pair_variables:
                 out_df = data.frame.copy()
             else:
-                if data.frame is None:
+                if data.frame.empty:
                     out_df = data.frames[(x, y)].copy()
                 else:
                     out_df = data.frame.copy()
@@ -1122,7 +1128,7 @@ class Plotter:
         self, mark: Mark, data: PlotData, scales: dict[str, Scale]
     ) -> None:
         """Add legend artists / labels for one layer in the plot."""
-        if data.frame is None:
+        if data.frame.empty:
             legend_vars = set()
             for frame in data.frames.values():
                 legend_vars.update(frame.columns.intersection(scales))
