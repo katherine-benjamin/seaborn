@@ -42,7 +42,7 @@ class FacetSpec(TypedDict, total=False):
 class PairSpec(TypedDict, total=False):
 
     variables: dict[str, VariableSpec]
-    structure: dict[str, str]
+    structure: dict[str, list[str]]
     cartesian: bool
     wrap: int | None
 
@@ -364,6 +364,7 @@ class Plot:
 
         spec: FacetSpec = {
             "variables": variables,
+            # "variables": {"col": col, "row": row},
             "col_order": col_order,
             "row_order": row_order,
             "wrap": wrap,

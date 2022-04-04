@@ -18,7 +18,7 @@ class TestSpecificationChecks:
     def test_cartesian_xy_pairing_and_wrap(self):
 
         err = "Cannot wrap subplots when pairing on both `x` and `y`."
-        pair_spec = {"x": ["a", "b"], "y": ["y", "z"], "wrap": 3}
+        pair_spec = {"wrap": 3, "structure": {"x": ["a", "b"], "y": ["y", "z"]}}
         with pytest.raises(RuntimeError, match=err):
             Subplots({}, {}, pair_spec)
 
@@ -26,7 +26,7 @@ class TestSpecificationChecks:
 
         err = "Cannot facet the columns while pairing on `x`."
         facet_spec = {"variables": {"col": "a"}}
-        pair_spec = {"x": ["x", "y"]}
+        pair_spec = {"structure": {"x": ["x", "y"]}}
         with pytest.raises(RuntimeError, match=err):
             Subplots({}, facet_spec, pair_spec)
 
@@ -34,7 +34,7 @@ class TestSpecificationChecks:
 
         err = "Cannot wrap the columns while pairing on `y`."
         facet_spec = {"variables": {"col": "a"}, "wrap": 2}
-        pair_spec = {"y": ["x", "y"]}
+        pair_spec = {"structure": {"y": ["x", "y"]}}
         with pytest.raises(RuntimeError, match=err):
             Subplots({}, facet_spec, pair_spec)
 
@@ -42,7 +42,7 @@ class TestSpecificationChecks:
 
         err = "Cannot wrap the columns while faceting the rows."
         facet_spec = {"variables": {"row": "a"}}
-        pair_spec = {"x": ["x", "y"], "wrap": 2}
+        pair_spec = {"structure": {"x": ["x", "y"]}, "wrap": 2}
         with pytest.raises(RuntimeError, match=err):
             Subplots({}, facet_spec, pair_spec)
 
@@ -137,7 +137,7 @@ class TestSubplotSpec:
 
         x = ["x", "y", "z"]
         y = ["a", "b"]
-        s = Subplots({}, {}, {"x": x, "y": y})
+        s = Subplots({}, {}, {"structure": {"x": x, "y": y}})
 
         assert s.n_subplots == len(x) * len(y)
         assert s.subplot_spec["ncols"] == len(x)
@@ -148,7 +148,7 @@ class TestSubplotSpec:
     def test_x_paired(self):
 
         x = ["x", "y", "z"]
-        s = Subplots({}, {}, {"x": x})
+        s = Subplots({}, {}, {"structure": {"x": x}})
 
         assert s.n_subplots == len(x)
         assert s.subplot_spec["ncols"] == len(x)
@@ -159,7 +159,7 @@ class TestSubplotSpec:
     def test_y_paired(self):
 
         y = ["x", "y", "z"]
-        s = Subplots({}, {}, {"y": y})
+        s = Subplots({}, {}, {"structure": {"y": y}})
 
         assert s.n_subplots == len(y)
         assert s.subplot_spec["ncols"] == 1
@@ -171,7 +171,7 @@ class TestSubplotSpec:
 
         x = ["a", "b", "x", "y", "z"]
         wrap = 3
-        s = Subplots({}, {}, {"x": x, "wrap": wrap})
+        s = Subplots({}, {}, {"structure": {"x": x}, "wrap": wrap})
 
         assert s.n_subplots == len(x)
         assert s.subplot_spec["ncols"] == wrap
@@ -183,7 +183,7 @@ class TestSubplotSpec:
 
         y = ["a", "b", "x", "y", "z"]
         wrap = 2
-        s = Subplots({}, {}, {"y": y, "wrap": wrap})
+        s = Subplots({}, {}, {"structure": {"y": y}, "wrap": wrap})
 
         assert s.n_subplots == len(y)
         assert s.subplot_spec["ncols"] == len(y) // wrap + 1
@@ -197,7 +197,8 @@ class TestSubplotSpec:
         key = "a"
         order = list("abc")
         facet_spec = {"variables": {"col": key}, "col_order": order}
-        s = Subplots({}, facet_spec, {"y": y})
+        pair_spec = {"structure": {"y": y}}
+        s = Subplots({}, facet_spec, pair_spec)
 
         assert s.n_subplots == len(order) * len(y)
         assert s.subplot_spec["ncols"] == len(order)
@@ -211,7 +212,8 @@ class TestSubplotSpec:
         key = "a"
         order = list("abc")
         facet_spec = {"variables": {"row": key}, "row_order": order}
-        s = Subplots({}, facet_spec, {"x": x})
+        pair_spec = {"structure": {"x": x}}
+        s = Subplots({}, facet_spec, pair_spec)
 
         assert s.n_subplots == len(order) * len(x)
         assert s.subplot_spec["ncols"] == len(x)
@@ -223,8 +225,8 @@ class TestSubplotSpec:
 
         x = ["a", "b", "c"]
         y = ["x", "y", "z"]
-
-        s = Subplots({}, {}, {"x": x, "y": y, "cartesian": False})
+        spec = {"structure": {"x": x, "y": y}, "cartesian": False}
+        s = Subplots({}, {}, spec)
 
         assert s.n_subplots == len(x)
         assert s.subplot_spec["ncols"] == len(y)
@@ -237,8 +239,8 @@ class TestSubplotSpec:
         x = ["a", "b", "c"]
         y = ["x", "y", "z"]
         wrap = 2
-
-        s = Subplots({}, {}, {"x": x, "y": y, "cartesian": False, "wrap": wrap})
+        spec = {"structure": {"x": x, "y": y}, "cartesian": False, "wrap": wrap}
+        s = Subplots({}, {}, spec)
 
         assert s.n_subplots == len(x)
         assert s.subplot_spec["ncols"] == wrap
@@ -360,12 +362,12 @@ class TestSubplotElements:
     def test_single_paired_var(self, var):
 
         other_var = {"x": "y", "y": "x"}[var]
-        pair_spec = {var: ["x", "y", "z"]}
+        pair_spec = {"structure": {var: ["x", "y", "z"]}}
 
         s = Subplots({}, {}, pair_spec)
         s.init_figure({}, pair_spec)
 
-        assert len(s) == len(pair_spec[var])
+        assert len(s) == len(pair_spec["structure"][var])
 
         for i, e in enumerate(s):
             assert e[var] == f"{var}{i}"
@@ -387,7 +389,7 @@ class TestSubplotElements:
         other_var = {"x": "y", "y": "x"}[var]
         pairings = ["x", "y", "z", "a", "b"]
         wrap = len(pairings) - 2
-        pair_spec = {var: pairings, "wrap": wrap}
+        pair_spec = {"structure": {var: pairings}, "wrap": wrap}
         s = Subplots({}, {}, pair_spec)
         s.init_figure({}, pair_spec)
 
@@ -415,7 +417,7 @@ class TestSubplotElements:
 
         x = ["a", "b"]
         y = ["x", "y", "z"]
-        pair_spec = {"x": x, "y": y}
+        pair_spec = {"structure": {"x": x, "y": y}}
         s = Subplots({}, {}, pair_spec)
         s.init_figure({}, pair_spec)
 
@@ -444,7 +446,10 @@ class TestSubplotElements:
 
     def test_both_paired_non_cartesian(self):
 
-        pair_spec = {"x": ["a", "b", "c"], "y": ["x", "y", "z"], "cartesian": False}
+        pair_spec = {
+            "structure": {"x": ["a", "b", "c"], "y": ["x", "y", "z"]},
+            "cartesian": False
+        }
         s = Subplots({}, {}, pair_spec)
         s.init_figure({}, pair_spec)
 
@@ -466,7 +471,7 @@ class TestSubplotElements:
         facet_spec = {"variables": {dim: "s"}, f"{dim}_order": order}
 
         pairings = ["x", "y", "t"]
-        pair_spec = {var: pairings}
+        pair_spec = {"structure": {var: pairings}}
 
         s = Subplots({}, facet_spec, pair_spec)
         s.init_figure(facet_spec, pair_spec)
