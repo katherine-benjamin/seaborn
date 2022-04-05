@@ -1172,15 +1172,24 @@ class TestPairInterface:
 
         p1 = Plot(long_df).pair()
         for axis in "xy":
-            assert p1._pair_spec[axis] == all_cols.to_list()
+            actual = [
+                v for k, v in p1._pair_spec["variables"].items() if k.startswith(axis)
+            ]
+            assert actual == all_cols.to_list()
 
         p2 = Plot(long_df, y="y").pair()
-        assert all_cols.difference(p2._pair_spec["x"]).item() == "y"
+        x_vars = [
+            v for k, v in p2._pair_spec["variables"].items() if k.startswith("x")
+        ]
+        assert all_cols.difference(x_vars).item() == "y"
         assert "y" not in p2._pair_spec
 
         p3 = Plot(long_df, color="a").pair()
         for axis in "xy":
-            assert all_cols.difference(p3._pair_spec[axis]).item() == "a"
+            x_vars = [
+                v for k, v in p3._pair_spec["variables"].items() if k.startswith("x")
+            ]
+            assert all_cols.difference(x_vars).item() == "a"
 
         with pytest.raises(RuntimeError, match="You must pass `data`"):
             Plot().pair()

@@ -60,6 +60,8 @@ class PlotData:
         self.names = names
         self.ids = ids
 
+        self.frames = {}  # TODO this is a hack, remove
+
         self.source_data = data
         self.source_vars = variables
 

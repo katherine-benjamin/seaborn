@@ -306,6 +306,10 @@ class Plot:
                 y = all_unused_columns
 
         axes = {"x": [] if x is None else x, "y": [] if y is None else y}
+        for axis, arg in axes.items():
+            if isinstance(arg, (str, int)):
+                err = f"You must pass a sequence of variable keys to `{axis}`"
+                raise TypeError(err)
 
         pair_spec["variables"] = {}
         pair_spec["structure"] = {}
@@ -630,7 +634,7 @@ class Plotter:
             title_parts = []
             for dim in ["row", "col"]:
                 if sub[dim] is not None:
-                    name = facet_spec.get(f"{dim}_name")
+                    name = common.names.get(dim)  # TODO None = val looks bad
                     title_parts.append(f"{name} = {sub[dim]}")
 
             has_col = sub["col"] is not None
@@ -836,7 +840,7 @@ class Plotter:
         # Identify all of the variables that will be used at some point in the plot
         variables = set()
         for layer in layers:
-            if layer["data"].frame.empty:
+            if layer["data"].frame.empty and layer["data"].frames:
                 for df in layer["data"].frames.values():
                     variables.update(df.columns)
             else:
@@ -851,7 +855,7 @@ class Plotter:
             # Get the data all the distinct appearances of this variable.
             parts = []
             for layer in layers:
-                if layer["data"].frame.empty:
+                if layer["data"].frame.empty and layer["data"].frames:
                     for df in layer["data"].frames.values():
                         parts.append(df.get(var))
                 else:
@@ -1019,12 +1023,12 @@ class Plotter:
                 if (sub["x"] == x) and (sub["y"] == y):
                     subplots.append(sub)
 
-            if data.frame.empty:
+            if data.frame.empty and data.frames:
                 out_df = data.frames[(x, y)].copy()
             elif not pair_variables:
                 out_df = data.frame.copy()
             else:
-                if data.frame.empty:
+                if data.frame.empty and data.frames:
                     out_df = data.frames[(x, y)].copy()
                 else:
                     out_df = data.frame.copy()
@@ -1129,7 +1133,7 @@ class Plotter:
         self, mark: Mark, data: PlotData, scales: dict[str, Scale]
     ) -> None:
         """Add legend artists / labels for one layer in the plot."""
-        if data.frame.empty:
+        if data.frame.empty and data.frames:
             legend_vars = set()
             for frame in data.frames.values():
                 legend_vars.update(frame.columns.intersection(scales))
