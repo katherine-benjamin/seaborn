@@ -1335,6 +1335,13 @@ class TestPairInterface:
 
         assert orient_list == ["y", "x"]
 
+    def test_two_variables_single_order_error(self, long_df):
+
+        p = Plot(long_df)
+        err = "When faceting on both col= and row=, passing `order`"
+        with pytest.raises(RuntimeError, match=err):
+            p.facet(col="a", row="b", order=["a", "b", "c"])
+
 
 class TestLabelVisibility:
 

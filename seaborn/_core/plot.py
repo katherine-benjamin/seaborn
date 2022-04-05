@@ -283,6 +283,9 @@ class Plot:
         # But maybe a different verb (e.g. Plot.spread) would be more clear?
         # Then Plot(data).pair(x=[...]) would show the given x vars vs all.
 
+        # TODO would like to add transpose=True, which would then draw
+        # Plot(x=...).pair(y=[...]) across the rows
+
         pair_spec: PairSpec = {}
 
         if x is None and y is None:
@@ -341,11 +344,6 @@ class Plot:
         wrap: int | None = None,
     ) -> Plot:
 
-        # TODO don't allow col/row in the Plot constructor, require an explicit
-        # call the facet(). That makes things simpler!
-
-        # Can't pass `None` here or it will disinherit the `Plot()` def
-        # TODO less complex if we don't allow col/row in Plot()
         variables = {}
         if col is not None:
             variables["col"] = col
@@ -361,7 +359,7 @@ class Plot:
         elif order is not None:
             if col is not None and row is not None:
                 err = " ".join([
-                    "When faceting on both columns and rows, passing `order` as a list"
+                    "When faceting on both col= and row=, passing `order` as a list"
                     "is ambiguous. Use a dict with 'col' and/or 'row' keys instead."
                 ])
                 raise RuntimeError(err)
@@ -386,16 +384,14 @@ class Plot:
     def scale(self, **scales: ScaleSpec) -> Plot:
 
         new = self._clone()
-        # TODO use update but double check it doesn't mutate parent of clone
-        for var, scale in scales.items():
-            new._scales[var] = scale
+        new._scales.update(**scales)
         return new
 
     def configure(
         self,
         figsize: tuple[float, float] | None = None,
-        sharex: bool | Literal["row", "col"] | None = None,
-        sharey: bool | Literal["row", "col"] | None = None,
+        sharex: bool | str | None = None,
+        sharey: bool | str | None = None,
     ) -> Plot:
 
         # TODO add an "auto" mode for figsize that roughly scales with the rcParams
@@ -408,11 +404,10 @@ class Plot:
         # TODO this is a hack; make a proper figure spec object
         new._figsize = figsize  # type: ignore
 
-        subplot_keys = ["sharex", "sharey"]
-        for key in subplot_keys:
-            val = locals()[key]
-            if val is not None:
-                new._subplot_spec[key] = val
+        if sharex is not None:
+            new._subplot_spec["sharex"] = sharex
+        if sharey is not None:
+            new._subplot_spec["sharey"] = sharey
 
         return new
 
