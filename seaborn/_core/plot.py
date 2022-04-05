@@ -35,10 +35,10 @@ class Layer(TypedDict, total=False):
     mark: Mark  # TODO allow list?
     stat: Stat | None  # TODO allow list?
     move: Move | list[Move] | None
+    data: PlotData
     source: DataSource
     vars: dict[str, VariableSpec]
     orient: str
-    data: PlotData
 
 
 class FacetSpec(TypedDict, total=False):
@@ -705,7 +705,7 @@ class Plotter:
             # the scale (so that axis units / categories are initialized properly)
             # And then scale the data in each layer.
             scale = self._get_scale(p, prefix, prop, var_df[var])
-            subplots = [sp for sp in self._subplots if sp[axis] == prefix]
+            subplots = [view for view in self._subplots if view[axis] == prefix]
 
             # Setup the scale on all of the data and plug it into self._scales
             # We do this because by the time we do self._setup_scales, coordinate data
@@ -719,8 +719,8 @@ class Plotter:
                 for layer in layers
             ]
 
-            for subplot in subplots:
-                axis_obj = getattr(subplot["ax"], f"{axis}axis")
+            for view in subplots:
+                axis_obj = getattr(view["ax"], f"{axis}axis")
 
                 if share_state in [True, "all"]:
                     # The all-shared case is easiest, every subplot sees all the data
@@ -729,10 +729,10 @@ class Plotter:
                     # Otherwise, we need to setup separate scales for different subplots
                     if share_state in [False, "none"]:
                         # Fully independent axes are also easy: use each subplot's data
-                        idx = self._get_subplot_index(var_df, subplot)
+                        idx = self._get_subplot_index(var_df, view)
                     elif share_state in var_df:
                         # Sharing within row/col is more complicated
-                        use_rows = var_df[share_state] == subplot[share_state]
+                        use_rows = var_df[share_state] == view[share_state]
                         idx = var_df.index[use_rows]
                     else:
                         # This configuration doesn't make much sense, but it's fine
@@ -745,11 +745,11 @@ class Plotter:
                 for layer, new_series in zip(layers, transformed_data):
                     layer_df = layer["data"].frame
                     if var in layer_df:
-                        idx = self._get_subplot_index(layer_df, subplot)
+                        idx = self._get_subplot_index(layer_df, view)
                         new_series.loc[idx] = transform(layer_df.loc[idx, var])
 
                 # TODO need decision about whether to do this or modify axis transform
-                set_scale_obj(subplot["ax"], axis, transform.matplotlib_scale)
+                set_scale_obj(view["ax"], axis, transform.matplotlib_scale)
 
             # Now the transformed data series are complete, set update the layer data
             for layer, new_series in zip(layers, transformed_data):
@@ -946,10 +946,9 @@ class Plotter:
             mark.plot(split_generator, scales, orient)
 
         # TODO is this the right place for this?
-        for sp in self._subplots:
-            sp["ax"].autoscale_view()
+        for view in self._subplots:
+            view["ax"].autoscale_view()
 
-        # TODO update to use data.frames
         self._update_legend_contents(mark, data, scales)
 
     def _scale_coords(self, subplots: list[dict], df: DataFrame) -> DataFrame:
@@ -963,12 +962,13 @@ class Plotter:
             .reindex(df.columns, axis=1)  # So unscaled columns retain their place
         )
 
-        for subplot in subplots:
-            axes_df = self._filter_subplot_data(df, subplot)[coord_cols]
+        for view in subplots:
+            view_df = self._filter_subplot_data(df, view)
+            axes_df = view_df[coord_cols]
             with pd.option_context("mode.use_inf_as_null", True):
                 axes_df = axes_df.dropna()  # TODO do we actually need/want this?
             for var, values in axes_df.items():
-                scale = subplot[f"{var[0]}scale"]
+                scale = view[f"{var[0]}scale"]
                 out_df.loc[values.index, var] = scale(values)
 
         return out_df
@@ -983,11 +983,11 @@ class Plotter:
             .reindex(df.columns, axis=1)  # So unscaled columns retain their place
         )
 
-        for subplot in subplots:
-            subplot_df = self._filter_subplot_data(df, subplot)
-            axes_df = subplot_df[coord_cols]
+        for view in subplots:
+            view_df = self._filter_subplot_data(df, view)
+            axes_df = view_df[coord_cols]
             for var, values in axes_df.items():
-                axis = getattr(subplot["ax"], f"{var[0]}axis")
+                axis = getattr(view["ax"], f"{var[0]}axis")
                 # TODO see https://github.com/matplotlib/matplotlib/issues/22713
                 inverted = axis.get_transform().inverted().transform(values)
                 out_df.loc[values.index, var] = inverted
@@ -1020,9 +1020,9 @@ class Plotter:
         for x, y in iter_axes:
 
             subplots = []
-            for sub in self._subplots:
-                if (sub["x"] == x) and (sub["y"] == y):
-                    subplots.append(sub)
+            for view in self._subplots:
+                if (view["x"] == x) and (view["y"] == y):
+                    subplots.append(view)
 
             if data.frame.empty and data.frames:
                 out_df = data.frames[(x, y)].copy()
@@ -1089,17 +1089,17 @@ class Plotter:
 
         def split_generator() -> Generator:
 
-            for subplot in subplots:
+            for view in subplots:
 
-                axes_df = self._filter_subplot_data(df, subplot)
+                axes_df = self._filter_subplot_data(df, view)
 
                 subplot_keys = {}
                 for dim in ["col", "row"]:
-                    if subplot[dim] is not None:
-                        subplot_keys[dim] = subplot[dim]
+                    if view[dim] is not None:
+                        subplot_keys[dim] = view[dim]
 
                 if not grouping_vars or not any(grouping_keys):
-                    yield subplot_keys, axes_df.copy(), subplot["ax"]
+                    yield subplot_keys, axes_df.copy(), view["ax"]
                     continue
 
                 grouped_df = axes_df.groupby(grouping_vars, sort=False, as_index=False)
@@ -1126,7 +1126,7 @@ class Plotter:
                     sub_vars.update(subplot_keys)
 
                     # TODO need copy(deep=...) policy (here, above, anywhere else?)
-                    yield sub_vars, df_subset.copy(), subplot["ax"]
+                    yield sub_vars, df_subset.copy(), view["ax"]
 
         return split_generator
 

@@ -1,15 +1,14 @@
 from __future__ import annotations
+from collections.abc import Generator
 
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure, SubFigure
 from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from collections.abc import Generator
-    from matplotlib.axes import Axes
-    from matplotlib.figure import Figure, SubFigure
-    # TODO move to seaborn._core.typing?
+if TYPE_CHECKING:  # TODO move to seaborn._core.typing?
     from seaborn._core.plot import FacetSpec, PairSpec
 
 
