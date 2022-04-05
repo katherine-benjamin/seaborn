@@ -13,7 +13,7 @@ VariableSpec = Union[Hashable, Vector, None]
 VariableType = Literal["numeric", "categorical", "datetime"]
 DataSource = Union[DataFrame, Mapping[Hashable, Vector], None]
 
-OrderSpec = Union[Series, Index, Iterable, None]  # TODO technically str is iterable
+OrderSpec = Union[Iterable, None]  # TODO technically str is iterable
 NormSpec = Union[Tuple[Optional[float], Optional[float]], Normalize, None]
 
 # TODO for discrete mappings, it would be ideal to use a parameterized type

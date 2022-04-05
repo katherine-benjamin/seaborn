@@ -33,9 +33,10 @@ from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
 
 class FacetSpec(TypedDict, total=False):
 
-    variables: dict[Literal["col", "row"], VariableSpec]
-    col_order: OrderSpec
-    row_order: OrderSpec
+    # TODO how to enforce literal keys here?
+    # variables: dict[Literal["col", "row"], VariableSpec]
+    variables: dict[str, VariableSpec]
+    structure: dict[str, list[str]]
     wrap: int | None
 
 
@@ -332,7 +333,7 @@ class Plot:
         # TODO require kwargs?
         col: VariableSpec = None,
         row: VariableSpec = None,
-        order: OrderSpec | dict[Literal["col", "row"], OrderSpec] = None,
+        order: OrderSpec | dict[str, OrderSpec] = None,
         wrap: int | None = None,
     ) -> Plot:
 
@@ -347,26 +348,27 @@ class Plot:
         if row is not None:
             variables["row"] = row
 
-        col_order: OrderSpec = None
-        row_order: OrderSpec = None
+        structure = {}
         if isinstance(order, dict):
-            col_order = order.get("col")
-            if col_order is not None:
-                col_order = list(col_order)
-            row_order = order.get("row")
-            if row_order is not None:
-                row_order = list(row_order)
+            for dim in ["col", "row"]:
+                dim_order = order.get(dim)
+                if dim_order is not None:
+                    structure[dim] = list(dim_order)
         elif order is not None:
-            if col is not None:
-                col_order = list(order)
-            if row is not None:
-                row_order = list(order)
+            if col is not None and row is not None:
+                err = " ".join([
+                    "When faceting on both columns and rows, passing `order` as a list"
+                    "is ambiguous. Use a dict with 'col' and/or 'row' keys instead."
+                ])
+                raise RuntimeError(err)
+            elif col is not None:
+                structure["col"] = list(order)
+            elif row is not None:
+                structure["row"] = list(order)
 
         spec: FacetSpec = {
             "variables": variables,
-            # "variables": {"col": col, "row": row},
-            "col_order": col_order,
-            "row_order": row_order,
+            "structure": structure,
             "wrap": wrap,
         }
 
@@ -482,6 +484,7 @@ class Plotter:
     # TODO decide if we ever want these (Plot.plot(debug=True))?
     _data: PlotData
     _layers: list[dict]
+    _figure: Figure
 
     def __init__(self, pyplot=False):
 
@@ -571,19 +574,16 @@ class Plotter:
         pair_spec = p._pair_spec.copy()
 
         for dim in ["col", "row"]:
-            if dim in common.frame:
-                key = f"{dim}_order"
-                facet_spec[key] = categorical_order(
-                    common.frame[dim], facet_spec.get(key)
-                )
-                facet_spec[f"{dim}_name"] = common.names[dim]
+            if dim in common.frame and dim not in facet_spec["structure"]:
+                order = categorical_order(common.frame[dim])
+                facet_spec["structure"][dim] = order
 
         self._subplots = subplots = Subplots(subplot_spec, facet_spec, pair_spec)
 
         # --- Figure initialization
         figure_kws = {"figsize": getattr(p, "_figsize", None)}  # TODO fix
         self._figure = subplots.init_figure(
-            facet_spec, pair_spec, self.pyplot, figure_kws, p._target,
+            pair_spec, self.pyplot, figure_kws, p._target,
         )
 
         # --- Figure annotation
