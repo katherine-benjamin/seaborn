@@ -5,36 +5,44 @@ import os
 import re
 import itertools
 from collections import abc
+from collections.abc import Callable, Generator, Hashable
+from typing import Any, TypedDict
 
 import pandas as pd
+from pandas import DataFrame, Series, Index
 import matplotlib as mpl
+from matplotlib.axes import Axes
+from matplotlib.artist import Artist
+from matplotlib.figure import Figure, SubFigure
 import matplotlib.pyplot as plt  # TODO defer import into Plot.show()
 
-from seaborn._compat import set_scale_obj
+from seaborn._marks.base import Mark
+from seaborn._stats.base import Stat
 from seaborn._core.data import PlotData
-from seaborn._core.rules import categorical_order
+from seaborn._core.moves import Move
 from seaborn._core.scales import ScaleSpec, Scale
 from seaborn._core.subplots import Subplots
 from seaborn._core.groupby import GroupBy
 from seaborn._core.properties import PROPERTIES, Property, Coordinate
+from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
+from seaborn._core.rules import categorical_order
+from seaborn._compat import set_scale_obj
 from seaborn.external.version import Version
 
-from typing import Any, Literal, TypedDict
-from collections.abc import Callable, Generator, Hashable
-from pandas import DataFrame, Series, Index
-from matplotlib.axes import Axes
-from matplotlib.artist import Artist
-from matplotlib.figure import Figure, SubFigure
-from seaborn._marks.base import Mark
-from seaborn._stats.base import Stat
-from seaborn._core.moves import Move
-from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
+
+class Layer(TypedDict, total=False):
+
+    mark: Mark  # TODO allow list?
+    stat: Stat | None  # TODO allow list?
+    move: Move | list[Move] | None
+    source: DataSource
+    vars: dict[str, VariableSpec]
+    orient: str
+    data: PlotData
 
 
 class FacetSpec(TypedDict, total=False):
 
-    # TODO how to enforce literal keys here?
-    # variables: dict[Literal["col", "row"], VariableSpec]
     variables: dict[str, VariableSpec]
     structure: dict[str, list[str]]
     wrap: int | None
@@ -53,7 +61,7 @@ class Plot:
     # TODO use TypedDict throughout?
 
     _data: PlotData
-    _layers: list[dict]
+    _layers: list[Layer]
     _scales: dict[str, ScaleSpec]
 
     _subplot_spec: dict[str, Any]
@@ -227,7 +235,7 @@ class Plot:
         mark: Mark,
         stat: Stat | None = None,
         move: Move | None = None,
-        orient: Literal["x", "y", "v", "h"] | None = None,
+        orient: str | None = None,
         data: DataSource = None,
         **variables: VariableSpec,
     ) -> Plot:
@@ -482,7 +490,7 @@ class Plotter:
 
     # TODO decide if we ever want these (Plot.plot(debug=True))?
     _data: PlotData
-    _layers: list[dict]
+    _layers: list[Layer]
     _figure: Figure
 
     def __init__(self, pyplot=False):
@@ -543,7 +551,7 @@ class Plotter:
         metadata = {"width": w * dpi * scaling, "height": h * dpi * scaling}
         return data, metadata
 
-    def _extract_data(self, p: Plot) -> tuple[PlotData, list[dict]]:
+    def _extract_data(self, p: Plot) -> tuple[PlotData, list[Layer]]:
 
         common_data = (
             p._data
@@ -551,17 +559,15 @@ class Plotter:
             .join(None, p._pair_spec.get("variables"))
         )
 
-        # TODO use TypedDict for _layers
-        layers = []
+        layers: list[Layer] = []
         for layer in p._layers:
-            layers.append({
-                "data": common_data.join(layer.get("source"), layer.get("vars")),
-                **layer,
-            })
+            spec = layer.copy()
+            spec["data"] = common_data.join(layer.get("source"), layer.get("vars"))
+            layers.append(spec)
 
         return common_data, layers
 
-    def _setup_figure(self, p: Plot, common: PlotData, layers: list[dict]) -> None:
+    def _setup_figure(self, p: Plot, common: PlotData, layers: list[Layer]) -> None:
 
         # --- Parsing the faceting/pairing parameterization to specify figure grid
 
@@ -646,7 +652,7 @@ class Plotter:
                 title_text = ax.set_title(title)
                 title_text.set_visible(show_title)
 
-    def _transform_coords(self, p: Plot, common: PlotData, layers: list[dict]) -> None:
+    def _transform_coords(self, p: Plot, common: PlotData, layers: list[Layer]) -> None:
 
         for var in p._variables:
 
@@ -751,7 +757,7 @@ class Plotter:
                 if var in layer_df:
                     layer_df[var] = new_series
 
-    def _compute_stats(self, spec: Plot, layers: list[dict]) -> None:
+    def _compute_stats(self, spec: Plot, layers: list[Layer]) -> None:
 
         grouping_vars = [v for v in PROPERTIES if v not in "xy"]
         grouping_vars += ["col", "row", "group"]
@@ -830,7 +836,7 @@ class Plotter:
 
         return scale
 
-    def _setup_scales(self, p: Plot, layers: list[dict]) -> None:
+    def _setup_scales(self, p: Plot, layers: list[Layer]) -> None:
 
         # Identify all of the variables that will be used at some point in the plot
         variables = set()
@@ -883,7 +889,7 @@ class Plotter:
             else:
                 self._scales[var] = scale.setup(var_values, prop)
 
-    def _plot_layer(self, p: Plot, layer: dict[str, Any]) -> None:
+    def _plot_layer(self, p: Plot, layer: Layer) -> None:
 
         data = layer["data"]
         mark = layer["mark"]
