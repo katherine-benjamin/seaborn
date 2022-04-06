@@ -14,7 +14,7 @@ from pandas import DataFrame, Series, Index
 import matplotlib as mpl
 from matplotlib.axes import Axes
 from matplotlib.artist import Artist
-from matplotlib.figure import Figure, SubFigure
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt  # TODO defer import into Plot.show()
 
 from seaborn._marks.base import Mark
@@ -29,6 +29,11 @@ from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
 from seaborn._core.rules import categorical_order
 from seaborn._compat import set_scale_obj
 from seaborn.external.version import Version
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from matplotlib.figure import SubFigure
+
 
 if sys.version_info >= (3, 8):
     from typing import TypedDict
