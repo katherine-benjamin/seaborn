@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Optional, Union, Mapping, Tuple, List, Dict
 from collections.abc import Hashable, Iterable
-from numpy.typing import ArrayLike
+from numpy import ndarray  # TODO use ArrayLike?
 from pandas import DataFrame, Series, Index
 from matplotlib.colors import Colormap, Normalize
 
-Vector = Union[Series, Index, ArrayLike]
+Vector = Union[Series, Index, ndarray]
 PaletteSpec = Union[str, list, dict, Colormap, None]
 VariableSpec = Union[Hashable, Vector, None]
 # TODO can we better unify the VarType object and the VariableType alias?
