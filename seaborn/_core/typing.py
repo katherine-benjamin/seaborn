@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union, Mapping, Tuple, List, Dict
+from typing import Any, Optional, Union, Mapping, Tuple, List, Dict
 from collections.abc import Hashable, Iterable
 from numpy.typing import ArrayLike
 from pandas import DataFrame, Series, Index
@@ -10,7 +10,6 @@ Vector = Union[Series, Index, ArrayLike]
 PaletteSpec = Union[str, list, dict, Colormap, None]
 VariableSpec = Union[Hashable, Vector, None]
 # TODO can we better unify the VarType object and the VariableType alias?
-VariableType = Literal["numeric", "categorical", "datetime"]
 DataSource = Union[DataFrame, Mapping[Hashable, Vector], None]
 
 OrderSpec = Union[Iterable, None]  # TODO technically str is iterable
