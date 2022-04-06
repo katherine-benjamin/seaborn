@@ -3,10 +3,11 @@ from __future__ import annotations
 import io
 import os
 import re
+import sys
 import itertools
 from collections import abc
 from collections.abc import Callable, Generator, Hashable
-from typing import Any, TypedDict
+from typing import Any
 
 import pandas as pd
 from pandas import DataFrame, Series, Index
@@ -28,6 +29,11 @@ from seaborn._core.typing import DataSource, VariableSpec, OrderSpec
 from seaborn._core.rules import categorical_order
 from seaborn._compat import set_scale_obj
 from seaborn.external.version import Version
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+else:
+    from typing_extensions import TypedDict
 
 
 class Layer(TypedDict, total=False):

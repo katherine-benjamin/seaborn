@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union, Tuple, List, Dict
-from collections.abc import Mapping, Hashable, Iterable
+from typing import Any, Literal, Optional, Union, Mapping, Tuple, List, Dict
+from collections.abc import Hashable, Iterable
 from numpy.typing import ArrayLike
 from pandas import DataFrame, Series, Index
 from matplotlib.colors import Colormap, Normalize
