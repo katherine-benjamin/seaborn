@@ -1193,17 +1193,15 @@ class Plotter:
             # but will need the name in the next step to title the legend
             if key in merged_contents:
                 # Copy so inplace updates don't propagate back to legend_contents
-                existing_artists = merged_contents[key][0].copy()
+                existing_artists = merged_contents[key][0]
                 for i, artist in enumerate(existing_artists):
                     # Matplotlib accepts a tuple of artists and will overlay them
                     if isinstance(artist, tuple):
                         artist += artist[i],
                     else:
-                        artist = artist, artists[i]
-                    # Update list that is a value in the merged_contents dict in place
-                    existing_artists[i] = artist
+                        existing_artists[i] = artist, artists[i]
             else:
-                merged_contents[key] = artists, labels
+                merged_contents[key] = artists.copy(), labels
 
         base_legend = None
         for (name, _), (handles, labels) in merged_contents.items():

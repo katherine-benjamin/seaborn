@@ -1649,6 +1649,29 @@ class TestLegend:
                 assert a.value == label
                 assert a.variables == [variables[s.name]]
 
+    def test_multi_layer_different_artists(self, xy):
+
+        class MockMark1(MockMark):
+            def _legend_artist(self, variables, value, scales):
+                return mpl.lines.Line2D([], [])
+
+        class MockMark2(MockMark):
+            def _legend_artist(self, variables, value, scales):
+                return mpl.patches.Patch()
+
+        s = pd.Series(["a", "b", "a", "c"], name="s")
+        p = Plot(**xy, color=s).add(MockMark1()).add(MockMark2()).plot()
+
+        legend, = p._figure.legends
+
+        names = categorical_order(s)
+        labels = [t.get_text() for t in legend.get_texts()]
+        assert labels == names
+
+        contents = legend.get_children()[0]
+        assert len(contents.findobj(mpl.lines.Line2D)) == len(names)
+        assert len(contents.findobj(mpl.patches.Patch)) == len(names)
+
     def test_identity_scale_ignored(self, xy):
 
         s = pd.Series(["r", "g", "b", "g"])
