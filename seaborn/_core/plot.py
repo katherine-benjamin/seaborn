@@ -677,22 +677,7 @@ class Plotter:
             prefix = m["prefix"]
             axis = m["axis"]
 
-            prop = Coordinate(axis)
-
             share_state = self._subplots.subplot_spec[f"share{axis}"]
-
-            # Shared categorical axes are broken on matplotlib<3.4.0.
-            # https://github.com/matplotlib/matplotlib/pull/18308
-            # This only affects us when sharing *paired* axes. This is a novel/niche
-            # behavior, so we will raise rather than hack together a workaround.
-            if Version(mpl.__version__) < Version("3.4.0"):
-                paired_axis = axis in p._pair_spec
-                cat_scale = self._scales[var].scale_type in ["nominal", "ordinal"]
-                ok_dim = {"x": "col", "y": "row"}[axis]
-                shared_axes = share_state not in [False, "none", ok_dim]
-                if paired_axis and cat_scale and shared_axes:
-                    err = "Sharing paired categorical axes requires matplotlib>=3.4.0"
-                    raise RuntimeError(err)
 
             # Concatenate layers, using only the relevant coordinate and faceting vars,
             # This is unnecessarily wasteful, as layer data will often be redundant.
@@ -712,10 +697,26 @@ class Plotter:
             else:
                 var_df = pd.DataFrame(columns=cols)
 
+            prop = Coordinate(axis)
+            scale = self._get_scale(p, prefix, prop, var_df[var])
+
+            # Shared categorical axes are broken on matplotlib<3.4.0.
+            # https://github.com/matplotlib/matplotlib/pull/18308
+            # This only affects us when sharing *paired* axes. This is a novel/niche
+            # behavior, so we will raise rather than hack together a workaround.
+            if Version(mpl.__version__) < Version("3.4.0"):
+                from seaborn._core.scales import Nominal
+                paired_axis = axis in p._pair_spec
+                cat_scale = isinstance(scale, Nominal)
+                ok_dim = {"x": "col", "y": "row"}[axis]
+                shared_axes = share_state not in [False, "none", ok_dim]
+                if paired_axis and cat_scale and shared_axes:
+                    err = "Sharing paired categorical axes requires matplotlib>=3.4.0"
+                    raise RuntimeError(err)
+
             # Now loop through each subplot, deriving the relevant seed data to setup
             # the scale (so that axis units / categories are initialized properly)
             # And then scale the data in each layer.
-            scale = self._get_scale(p, prefix, prop, var_df[var])
             subplots = [view for view in self._subplots if view[axis] == prefix]
 
             # Setup the scale on all of the data and plug it into self._scales
