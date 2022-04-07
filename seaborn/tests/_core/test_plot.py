@@ -1668,15 +1668,13 @@ class TestLegend:
         labels = [t.get_text() for t in legend.get_texts()]
         assert labels == names
 
-        contents = legend.get_children()[0]
-        assert len(contents.findobj(mpl.lines.Line2D)) == len(names)
-        assert len(contents.findobj(mpl.patches.Patch)) == len(names)
+        if LooseVersion(mpl.__version__) >= "3.2":
+            contents = legend.get_children()[0]
+            assert len(contents.findobj(mpl.lines.Line2D)) == len(names)
+            assert len(contents.findobj(mpl.patches.Patch)) == len(names)
 
     def test_identity_scale_ignored(self, xy):
 
         s = pd.Series(["r", "g", "b", "g"])
         p = Plot(**xy).add(MockMark(), color=s).scale(color=None).plot()
         assert not p._legend_contents
-
-    # TODO test actually legend content? But wait until we decide
-    # how we want to actually create the legend ...
