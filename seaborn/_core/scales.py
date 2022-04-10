@@ -5,6 +5,15 @@ from functools import partial
 
 import numpy as np
 import matplotlib as mpl
+from matplotlib.ticker import (
+    AutoLocator,
+    FixedLocator,
+    LinearLocator,
+    LogLocator,
+    MaxNLocator,
+    MultipleLocator,
+    ScalarFormatter,
+)
 from matplotlib.axis import Axis
 
 from seaborn._core.rules import categorical_order
@@ -82,6 +91,15 @@ class ScaleSpec:
     ...
     # TODO have Scale define width (/height?) (using data?), so e.g. nominal scale sets
     # width=1, continuous scale sets width min(diff(unique(data))), etc.
+
+    def __post_init__(self):
+
+        # TODO do we need anything else here?
+        self.tick()
+
+    def tick(self):
+        # TODO what is the right base method?
+        return self
 
     def setup(
         self, data: Series, prop: Property, axis: Axis | None = None,
@@ -172,9 +190,69 @@ class Continuous(ScaleSpec):
     values: tuple | str | None = None  # TODO stricter tuple typing?
     norm: tuple[float | None, float | None] | None = None
     transform: str | Transforms | None = None
-    outside: Literal["keep", "drop", "clip"] = "keep"
+    outside: Literal["keep", "drop", "clip"] = "keep"  # TODO currently unused
 
-    def tick(self, count=None, *, every=None, at=None, between=None, format=None):
+    def _get_scale(self, name, forward, inverse):
+
+        major_locator = self._major_locator
+
+        class Scale(mpl.scale.FuncScale):
+            def set_default_locators_and_formatters(self, axis):
+                axis.set_major_locator(major_locator)
+                axis.set_major_formatter(ScalarFormatter())  # TODO
+
+        return Scale(name, (forward, inverse))
+
+    def tick(
+        self,
+        locator=None,
+        *,
+        upto: int | None = None,
+        every: float | None = None,
+        at: Sequence[float] = None,
+        count: int | None = None,
+        between: tuple[float, float] | None = None,
+    ) -> Continuous:  # TODO type return value as Self
+
+        # TODO need to accept a ticker (/formatter) (using=?)
+        # TODO pass format here or should .format be a different method?
+        # should there be a positional arg and if so, which?
+
+        # TODO inherit beteween from norm if provided?
+        if locator is not None:
+            # TODO input check
+            major_locator = locator
+        elif upto is not None:
+            # TODO other MaxNLocator kwargs?
+            major_locator = MaxNLocator(upto, steps=[1, 1.5, 2, 2.5, 3, 5, 10])
+        elif count is not None:
+            if between is None:
+                # TODO MaxNLocator has confusing behavior if you are asking for "n"
+                # But LinearLocator with no between= usually picks odd positions
+                # n is short, maybe count?
+                # maybe `upto` for MaxN? But then can't use between
+                major_locator = LinearLocator(count)
+            else:
+                major_locator = FixedLocator(np.linspace(*between, num=count))
+        elif every is not None:
+            if between is None:
+                major_locator = MultipleLocator(every)
+            else:
+                lo, hi = between
+                major_locator = FixedLocator(np.arange(lo, hi + every, every))
+        elif at is not None:
+            major_locator = FixedLocator(at)
+        else:
+            if isinstance(self.transform, str) and self.transform.startswith("log"):
+                # TODO most other parameters make sense with log too, how to handle?
+                major_locator = LogLocator(subs=[.2, .5, 1])
+            else:
+                # TODO other AutoLocator (MaxNLocator) kwargs?
+                major_locator = AutoLocator()
+
+        self._major_locator = major_locator
+
+        return self  # TODO or copy of self?
 
         # How to minor ticks? I am fine with minor ticks never getting labels
         # so it is just a matter or specifing a) you want them and b) how many?
@@ -182,10 +260,8 @@ class Continuous(ScaleSpec):
         # So I guess we just need a good parameter name?
         # Do we want to allow tick appearance parameters here?
         # What about direction? Tick on alternate axis?
-        # And specific tick label values? Only allow for categorical scales?
         # Should Continuous().tick(None) mean no tick/legend? If so what should
         # default value be for count? (I guess Continuous().tick(False) would work?)
-        ...
 
     # How to *allow* use of more complex third party objects? It seems shortsighted
     # not to maintain capabilities afforded by Scale / Ticker / Locator / UnitData,
@@ -199,8 +275,7 @@ class Continuous(ScaleSpec):
         new = copy(self)
         forward, inverse = self.get_transform()
 
-        # matplotlib_scale = mpl.scale.LinearScale(data.name)
-        mpl_scale = mpl.scale.FuncScale(data.name, (forward, inverse))
+        mpl_scale = self._get_scale(data.name, forward, inverse)
 
         normalize: Optional[Callable[[ArrayLike], ArrayLike]]
         if prop.normed:
