@@ -119,6 +119,12 @@ class TestContinuous:
         a.set_view_interval(0, 1)
         assert_array_equal(a.major.locator(), locs)
 
+    def test_tick_locator_input_check(self, x):
+
+        err = "Tick locator must be an instance of .*?, not <class 'tuple'>."
+        with pytest.raises(TypeError, match=err):
+            Continuous().tick((1, 2))
+
     def test_tick_upto(self, x):
 
         for n in [2, 5, 10]:
@@ -168,6 +174,17 @@ class TestContinuous:
         a = PseudoAxis(s.matplotlib_scale)
         a.set_view_interval(0, 1)
         assert_array_equal(a.major.locator(), np.linspace(lo, hi, n))
+
+    def test_tick_minor(self, x):
+
+        n = 3
+        s = Continuous().tick(count=2, minor=n).setup(x, Coordinate())
+        a = PseudoAxis(s.matplotlib_scale)
+        a.set_view_interval(0, 1)
+        # I am not sure why matplotlib's minor ticks include the
+        # largest major location but exclude the smalllest one ...
+        expected = np.linspace(0, 1, n + 2)[1:]
+        assert_array_equal(a.minor.locator(), expected)
 
 
 class TestNominal:

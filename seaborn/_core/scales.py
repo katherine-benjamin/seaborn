@@ -6,7 +6,9 @@ from functools import partial
 import numpy as np
 import matplotlib as mpl
 from matplotlib.ticker import (
+    Locator,
     AutoLocator,
+    AutoMinorLocator,
     FixedLocator,
     LinearLocator,
     LogLocator,
@@ -195,73 +197,90 @@ class Continuous(ScaleSpec):
     def _get_scale(self, name, forward, inverse):
 
         major_locator = self._major_locator
+        minor_locator = self._minor_locator
 
         class Scale(mpl.scale.FuncScale):
             def set_default_locators_and_formatters(self, axis):
                 axis.set_major_locator(major_locator)
                 axis.set_major_formatter(ScalarFormatter())  # TODO
+                if minor_locator is not None:
+                    axis.set_minor_locator(minor_locator)
 
         return Scale(name, (forward, inverse))
 
     def tick(
         self,
-        locator=None,
-        *,
+        locator: Locator = None, *,
         upto: int | None = None,
         every: float | None = None,
         at: Sequence[float] = None,
         count: int | None = None,
         between: tuple[float, float] | None = None,
+        minor: int | None = None,
     ) -> Continuous:  # TODO type return value as Self
 
-        # TODO need to accept a ticker (/formatter) (using=?)
         # TODO pass format here or should .format be a different method?
-        # should there be a positional arg and if so, which?
-
         # TODO inherit beteween from norm if provided?
+
         if locator is not None:
-            # TODO input check
+            if not isinstance(locator, Locator):
+                err = (
+                    f"Tick locator must be an instance of {Locator!r}, "
+                    f"not {type(locator)!r}."
+                )
+                raise TypeError(err)
             major_locator = locator
+
         elif upto is not None:
             # TODO other MaxNLocator kwargs?
             major_locator = MaxNLocator(upto, steps=[1, 1.5, 2, 2.5, 3, 5, 10])
+
         elif count is not None:
             if between is None:
                 # TODO MaxNLocator has confusing behavior if you are asking for "n"
                 # But LinearLocator with no between= usually picks odd positions
                 # n is short, maybe count?
-                # maybe `upto` for MaxN? But then can't use between
                 major_locator = LinearLocator(count)
             else:
                 major_locator = FixedLocator(np.linspace(*between, num=count))
+
         elif every is not None:
             if between is None:
                 major_locator = MultipleLocator(every)
             else:
                 lo, hi = between
                 major_locator = FixedLocator(np.arange(lo, hi + every, every))
+
         elif at is not None:
             major_locator = FixedLocator(at)
+
         else:
             if isinstance(self.transform, str) and self.transform.startswith("log"):
                 # TODO most other parameters make sense with log too, how to handle?
-                major_locator = LogLocator(subs=[.2, .5, 1])
+                major_locator = LogLocator()
+                minor_locator = LogLocator()
             else:
                 # TODO other AutoLocator (MaxNLocator) kwargs?
                 major_locator = AutoLocator()
 
+        if minor is None:
+            minor_locator = None
+        else:
+            # TODO reduce copy-paste of next line
+            if isinstance(self.transform, str) and self.transform.startswith("log"):
+                base = 10  # TODO get actual base
+                subs = np.linspace(0, base, minor + 2)[1:-1]
+                minor_locator = LogLocator(subs=subs)
+            else:
+                minor_locator = AutoMinorLocator(minor + 1)
+
         self._major_locator = major_locator
+        self._minor_locator = minor_locator
 
         return self  # TODO or copy of self?
 
-        # How to minor ticks? I am fine with minor ticks never getting labels
-        # so it is just a matter or specifing a) you want them and b) how many?
-        # Unlike with ticks, knowing how many minor ticks in each interval suffices.
-        # So I guess we just need a good parameter name?
         # Do we want to allow tick appearance parameters here?
         # What about direction? Tick on alternate axis?
-        # Should Continuous().tick(None) mean no tick/legend? If so what should
-        # default value be for count? (I guess Continuous().tick(False) would work?)
 
     # How to *allow* use of more complex third party objects? It seems shortsighted
     # not to maintain capabilities afforded by Scale / Ticker / Locator / UnitData,
@@ -406,6 +425,7 @@ class PseudoAxis:
         self.units = None
         self.scale = scale
         self.major = mpl.axis.Ticker()
+        self.minor = mpl.axis.Ticker()
 
         scale.set_default_locators_and_formatters(self)
         # self.set_default_intervals()  TODO mock?
@@ -440,14 +460,17 @@ class PseudoAxis:
 
     def set_major_formatter(self, formatter):
         # TODO matplotlib method does more handling (e.g. to set w/format str)
+        # We will probably handle that in the tick/format interface, though
         self.major.formatter = formatter
         formatter.set_axis(self)
 
     def set_minor_locator(self, locator):
-        pass
+        self.minor.locator = locator
+        locator.set_axis(self)
 
     def set_minor_formatter(self, formatter):
-        pass
+        self.minor.formatter = formatter
+        formatter.set_axis(self)
 
     def set_units(self, units):
         self.units = units
@@ -476,6 +499,16 @@ class PseudoAxis:
         if self.converter is None:
             return x
         return self.converter.convert(x, self.units, self)
+
+    def get_scale(self):
+        # TODO matplotlib actually returns a string here!
+        # Currently we just hit it with minor ticks where it checks for
+        # scale == "log". I'm not sure how you'd actually use log-scale
+        # minor "ticks" in a legend context, so this is fine.....
+        return self.scale
+
+    def get_majorticklocs(self):
+        return self.major.locator()
 
 
 # ------------------------------------------------------------------------------------
