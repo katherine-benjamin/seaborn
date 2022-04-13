@@ -148,7 +148,8 @@ class TestContinuous:
             s = Continuous().tick(every=d, between=(lo, hi)).setup(x, Coordinate())
             a = PseudoAxis(s.matplotlib_scale)
             a.set_view_interval(0, 1)
-            assert_array_equal(a.major.locator(), np.arange(lo, hi + d, d))
+            expected = np.arange(lo, hi + d, d)
+            assert_array_equal(a.major.locator(), expected)
 
     def test_tick_at(self, x):
 
@@ -185,6 +186,36 @@ class TestContinuous:
         # largest major location but exclude the smalllest one ...
         expected = np.linspace(0, 1, n + 2)[1:]
         assert_array_equal(a.minor.locator(), expected)
+
+    def test_log_tick_default(self, x):
+
+        s = Continuous(transform="log").setup(x, Coordinate())
+        a = PseudoAxis(s.matplotlib_scale)
+        a.set_view_interval(.5, 1050)
+        ticks = a.major.locator()
+        assert np.allclose(np.diff(np.log10(ticks)), 1)
+
+    def test_log_tick_upto(self, x):
+
+        n = 3
+        s = Continuous(transform="log").tick(upto=n).setup(x, Coordinate())
+        a = PseudoAxis(s.matplotlib_scale)
+        assert a.major.locator.numticks == n
+
+    def test_log_tick_count(self, x):
+
+        with pytest.raises(RuntimeError, match="`count` requires"):
+            Continuous(transform="log").tick(count=4)
+
+        s = Continuous(transform="log").tick(count=4, between=(1, 1000))
+        a = PseudoAxis(s.setup(x, Coordinate()).matplotlib_scale)
+        a.set_view_interval(.5, 1050)
+        assert_array_equal(a.major.locator(), [1, 10, 100, 1000])
+
+    def test_log_tick_every(self, x):
+
+        with pytest.raises(RuntimeError, match="`every` not supported"):
+            Continuous(transform="log").tick(every=2)
 
 
 class TestNominal:

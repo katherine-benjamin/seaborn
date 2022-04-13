@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from copy import copy
 from dataclasses import dataclass
 from functools import partial
@@ -221,6 +222,15 @@ class Continuous(ScaleSpec):
 
         # TODO pass format here or should .format be a different method?
         # TODO inherit beteween from norm if provided?
+        # TODO what about symlog?
+        if isinstance(self.transform, str):
+            m = re.match(r"log(\d*)", self.transform)
+            log_transform = m is not None
+            log_base = m[1] or 10 if log_transform else None
+            forward, inverse = self._get_transform()
+        else:
+            log_transform = False
+            log_base = forward = inverse = None
 
         if locator is not None:
             if not isinstance(locator, Locator):
@@ -232,45 +242,58 @@ class Continuous(ScaleSpec):
             major_locator = locator
 
         elif upto is not None:
-            # TODO other MaxNLocator kwargs?
-            major_locator = MaxNLocator(upto, steps=[1, 1.5, 2, 2.5, 3, 5, 10])
+            if log_transform:
+                major_locator = LogLocator(base=log_base, numticks=upto)
+            else:
+                # TODO other MaxNLocator kwargs?
+                major_locator = MaxNLocator(upto, steps=[1, 1.5, 2, 2.5, 3, 5, 10])
 
         elif count is not None:
             if between is None:
-                # TODO MaxNLocator has confusing behavior if you are asking for "n"
-                # But LinearLocator with no between= usually picks odd positions
-                # n is short, maybe count?
+                if log_transform:
+                    msg = "`count` requires `between` with log transform."
+                    raise RuntimeError(msg)
+                # This is rarely useful (unless you are setting limits)
                 major_locator = LinearLocator(count)
             else:
-                major_locator = FixedLocator(np.linspace(*between, num=count))
+                if log_transform:
+                    ticks = inverse(np.linspace(*forward(between), num=count))
+                else:
+                    ticks = np.linspace(*between, num=count)
+                major_locator = FixedLocator(ticks)
 
         elif every is not None:
+            if log_transform:
+                msg = "`every` not supported with log transform."
+                raise RuntimeError(msg)
             if between is None:
                 major_locator = MultipleLocator(every)
             else:
                 lo, hi = between
-                major_locator = FixedLocator(np.arange(lo, hi + every, every))
+                ticks = np.arange(lo, hi + every, every)
+                major_locator = FixedLocator(ticks)
 
         elif at is not None:
             major_locator = FixedLocator(at)
 
         else:
-            if isinstance(self.transform, str) and self.transform.startswith("log"):
+            if log_transform:
                 # TODO most other parameters make sense with log too, how to handle?
-                major_locator = LogLocator()
-                minor_locator = LogLocator()
+                major_locator = LogLocator(log_base)
             else:
                 # TODO other AutoLocator (MaxNLocator) kwargs?
                 major_locator = AutoLocator()
 
         if minor is None:
-            minor_locator = None
+            if log_transform:
+                minor_locator = LogLocator(log_base, subs=None)
+            else:
+                minor_locator = None
         else:
             # TODO reduce copy-paste of next line
-            if isinstance(self.transform, str) and self.transform.startswith("log"):
-                base = 10  # TODO get actual base
-                subs = np.linspace(0, base, minor + 2)[1:-1]
-                minor_locator = LogLocator(subs=subs)
+            if log_transform:
+                subs = np.linspace(0, log_base, minor + 2)[1:-1]
+                minor_locator = LogLocator(log_base, subs=subs)
             else:
                 minor_locator = AutoMinorLocator(minor + 1)
 
@@ -292,7 +315,7 @@ class Continuous(ScaleSpec):
     ) -> Scale:
 
         new = copy(self)
-        forward, inverse = self.get_transform()
+        forward, inverse = self._get_transform()
 
         mpl_scale = self._get_scale(data.name, forward, inverse)
 
@@ -332,12 +355,13 @@ class Continuous(ScaleSpec):
             locs = locs[(vmin <= locs) & (locs <= vmax)]
             labels = axis.major.formatter.format_ticks(locs)
             legend = list(locs), list(labels)
+
         else:
             legend = None
 
         return Scale(forward_pipe, inverse_pipe, legend, "continuous", mpl_scale)
 
-    def get_transform(self):
+    def _get_transform(self):
 
         arg = self.transform
 
