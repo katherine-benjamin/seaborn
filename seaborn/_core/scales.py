@@ -226,7 +226,7 @@ class Continuous(ScaleSpec):
         if isinstance(self.transform, str):
             m = re.match(r"log(\d*)", self.transform)
             log_transform = m is not None
-            log_base = m[1] or 10 if log_transform else None
+            log_base = m[1] or 10 if m is not None else None
             forward, inverse = self._get_transform()
         else:
             log_transform = False
@@ -257,7 +257,8 @@ class Continuous(ScaleSpec):
                 major_locator = LinearLocator(count)
             else:
                 if log_transform:
-                    ticks = inverse(np.linspace(*forward(between), num=count))
+                    lo, hi = forward(between)
+                    ticks = inverse(np.linspace(lo, hi, num=count))
                 else:
                     ticks = np.linspace(*between, num=count)
                 major_locator = FixedLocator(ticks)
