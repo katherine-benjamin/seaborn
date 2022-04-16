@@ -635,7 +635,10 @@ class Color(Property):
         def _mapping(x):
             # Remove alpha channel so it does not override alpha property downstream
             # TODO this will need to be more flexible to support RGBA tuples (see above)
-            return mapping(x)[:, :3]
+            invalid = ~np.isfinite(x)
+            out = mapping(x)[:, :3]
+            out[invalid] = np.nan
+            return out
 
         return _mapping
 
