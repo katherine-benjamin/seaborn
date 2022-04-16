@@ -543,7 +543,7 @@ class Color(Property):
         else:
             return Nominal(arg)
 
-    def _standardize_colors(self, colors: ArrayLike) -> ArrayLike:
+    def _standardize_color_sequence(self, colors: ArrayLike) -> ArrayLike:
         """Convert color sequence to RGB(A) array, preserving but not adding alpha."""
         # TODO can be simplified using new Color.standardize approach?
         def has_alpha(x):
@@ -590,7 +590,7 @@ class Color(Property):
             raise TypeError(msg)
 
         # If color specified here has alpha channel, it will override alpha property
-        colors = self._standardize_colors(colors)
+        colors = self._standardize_color_sequence(colors)
 
         def mapping(x):
             ixs = np.asarray(x, np.intp)
