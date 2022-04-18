@@ -918,11 +918,6 @@ class Plotter:
                 if var not in "xy" and var in scales:
                     return scales[var].order
 
-            # TODO get this from the Mark, otherwise scale by natural spacing?
-            # (But what about sparse categoricals? categorical always width/height=1
-            # Should default width/height be 1 and then get scaled by Mark.width?
-            # Also note tricky thing, width attached to mark does not get rescaled
-            # during dodge, but then it dominates during feature resolution
             if "space" not in df:
                 df["space"] = scales[orient].spacing(df[orient])
 
@@ -970,7 +965,8 @@ class Plotter:
             view_df = self._filter_subplot_data(df, view)
             axes_df = view_df[coord_cols]
             with pd.option_context("mode.use_inf_as_null", True):
-                axes_df = axes_df.dropna()  # TODO do we actually need/want this?
+                # TODO Is this just removing infs (since nans get added back?)
+                axes_df = axes_df.dropna()
             for var, values in axes_df.items():
                 scale = view[f"{var[0]}scale"]
                 out_df.loc[values.index, var] = scale(values)

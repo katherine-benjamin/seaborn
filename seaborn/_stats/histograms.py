@@ -129,6 +129,11 @@ class Hist(Stat):
                 data, self._get_bins_and_eval, orient, groupby, scale_type,
             )
 
+        # TODO Make this an option?
+        # (This needs to be tested if enabled, and maybe should be in _eval)
+        # other = {"x": "y", "y": "x"}[orient]
+        # data = data[data[other] > 0]
+
         if not grouping_vars or self.common_norm is True:
             data = self._normalize(data, orient)
         else:

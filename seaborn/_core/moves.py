@@ -111,6 +111,4 @@ class Dodge(Move):
             .rename(columns={"_dodged": orient})
         )
 
-        # TODO drop introduced 0s in empty positions?
-
         return out
