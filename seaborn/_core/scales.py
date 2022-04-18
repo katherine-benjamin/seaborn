@@ -44,6 +44,7 @@ class Scale:
         self,
         forward_pipe: Pipeline,
         inverse_pipe: Pipeline,
+        spacer: Callable[[Series], float],
         legend: tuple[list[Any], list[str]] | None,
         scale_type: Literal["nominal", "continuous"],
         matplotlib_scale: MatplotlibScale,
@@ -51,6 +52,7 @@ class Scale:
 
         self.forward_pipe = forward_pipe
         self.inverse_pipe = inverse_pipe
+        self.spacer = spacer
         self.legend = legend
         self.scale_type = scale_type
         self.matplotlib_scale = matplotlib_scale
@@ -84,6 +86,9 @@ class Scale:
     def invert_transform(self, data):
         assert self.inverse_pipe is not None  # TODO raise or no-op?
         return self._apply_pipeline(data, self.inverse_pipe)
+
+    def spacing(self, data: Series) -> float:
+        return self.spacer(data)
 
 
 @dataclass
@@ -168,12 +173,15 @@ class Nominal(ScaleSpec):
 
         inverse_pipe: Pipeline = []
 
+        def spacer(x):
+            return 1
+
         if prop.legend:
             legend = units_seed, list(stringify(units_seed))
         else:
             legend = None
 
-        scale = Scale(forward_pipe, inverse_pipe, legend, "nominal", mpl_scale)
+        scale = Scale(forward_pipe, inverse_pipe, spacer, legend, "nominal", mpl_scale)
         return scale
 
 
@@ -367,6 +375,9 @@ class Continuous(ScaleSpec):
         # TODO if we invert using axis.get_transform(), we don't need this
         inverse_pipe = [inverse]
 
+        def spacer(x):
+            return np.min(np.diff(np.sort(x.unique())))
+
         # TODO make legend optional on per-plot basis with ScaleSpec parameter?
         if prop.legend:
             axis.set_view_interval(vmin, vmax)
@@ -378,7 +389,9 @@ class Continuous(ScaleSpec):
         else:
             legend = None
 
-        return Scale(forward_pipe, inverse_pipe, legend, "continuous", mpl_scale)
+        return Scale(
+            forward_pipe, inverse_pipe, spacer, legend, "continuous", mpl_scale
+        )
 
     def _get_transform(self):
 
