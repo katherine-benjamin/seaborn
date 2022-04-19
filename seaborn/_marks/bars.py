@@ -65,14 +65,13 @@ class Bar(Mark):
         for keys, data, ax in split_gen():
 
             xys = data[["x", "y"]].to_numpy()
-            space = data["space"].to_numpy()
             data = self.resolve_features(data, scales)
 
             bars = []
             for i, (x, y) in enumerate(xys):
 
                 baseline = data["baseline"][i]
-                width = space[i] * data["width"][i]
+                width = data["width"][i]
                 xy, w, h = coords_to_geometry(x, y, width, baseline)
 
                 bar = mpl.patches.Rectangle(

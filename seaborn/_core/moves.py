@@ -48,7 +48,7 @@ class Jitter(Move):
             return data[col] + offsets
 
         if self.width:
-            data[orient] = jitter(data, orient, self.width * data["space"])
+            data[orient] = jitter(data, orient, self.width * data["width"])
         if self.x:
             data["x"] = jitter(data, "x", self.x)
         if self.y:
@@ -72,7 +72,7 @@ class Dodge(Move):
 
         grouping_vars = [v for v in groupby.order if v in data]
 
-        groups = groupby.agg(data, {"space": "max"})
+        groups = groupby.agg(data, {"width": "max"})
         if self.empty == "fill":
             groups = groups.dropna()
 
@@ -80,7 +80,7 @@ class Dodge(Move):
             grouper = [groups[v] for v in [orient, "col", "row"] if v in data]
             return s.groupby(grouper, sort=False, observed=True)
 
-        def scale_space(w):
+        def scale_widths(w):
             # TODO what value to fill missing widths??? Hard problem...
             # TODO short circuit this if outer widths has no variance?
             empty = 0 if self.empty == "fill" else w.mean()
@@ -91,21 +91,21 @@ class Dodge(Move):
                 w = filled
             return w / norm * scale
 
-        def space_to_offsets(w):
+        def widths_to_offsets(w):
             return w.shift(1).fillna(0).cumsum() + (w - w.sum()) / 2
 
-        new_space = groupby_pos(groups["space"]).transform(scale_space)
-        offsets = groupby_pos(new_space).transform(space_to_offsets)
+        new_widths = groupby_pos(groups["width"]).transform(scale_widths)
+        offsets = groupby_pos(new_widths).transform(widths_to_offsets)
 
         if self.gap:
-            new_space *= 1 - self.gap
+            new_widths *= 1 - self.gap
 
         groups["_dodged"] = groups[orient] + offsets
-        groups["space"] = new_space
+        groups["width"] = new_widths
 
         out = (
             data
-            .drop("space", axis=1)
+            .drop("width", axis=1)
             .merge(groups, on=grouping_vars, how="left")
             .drop(orient, axis=1)
             .rename(columns={"_dodged": orient})

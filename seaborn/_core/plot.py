@@ -891,7 +891,10 @@ class Plotter:
                 # We don't really need a ScaleSpec, and Identity() will be
                 # overloaded anyway (but maybe a general Identity object
                 # that can be used as Scale/Mark/Stat/Move?)
-                self._scales[var] = Scale([], [], None, "identity", None)
+                # Note that this may not be the right spacer to use
+                # (but that is only relevant for coordinates where identity scale
+                # doesn't make sense or is poorly defined — should it mean "pixes"?)
+                self._scales[var] = Scale([], lambda x: x, None, "identity", None)
             else:
                 self._scales[var] = scale.setup(var_values, prop)
 
@@ -918,8 +921,14 @@ class Plotter:
                 if var not in "xy" and var in scales:
                     return scales[var].order
 
-            if "space" not in df:
-                df["space"] = scales[orient].spacing(df[orient])
+            if "width" in mark.features:
+                width = mark._resolve(df, "width", None)
+            elif "width" in df:
+                width = df["width"]
+            else:
+                width = 0.8  # TODO what default?
+            if orient in df:
+                df["width"] = width * scales[orient].spacing(df[orient])
 
             if move is not None:
                 moves = move if isinstance(move, list) else [move]
@@ -978,9 +987,10 @@ class Plotter:
     ) -> DataFrame:
         # TODO do we still have numbers in the variable name at this point?
         coord_cols = [c for c in df if re.match(r"^[xy]\D*$", c)]
+        drop_cols = [*coord_cols, "width"] if "width" in df else coord_cols
         out_df = (
             df
-            .drop([*coord_cols, "space"], axis=1)
+            .drop(drop_cols, axis=1)
             .reindex(df.columns, axis=1)  # So unscaled columns retain their place
             .copy(deep=False)
         )
@@ -996,10 +1006,10 @@ class Plotter:
                 inverted = transform(values)
                 out_df.loc[values.index, var] = inverted
 
-                if var == orient:
-                    space = view_df["space"]
-                    out_df.loc[values.index, "space"] = (
-                        transform(values + space / 2) - transform(values - space / 2)
+                if var == orient and "width" in view_df:
+                    width = view_df["width"]
+                    out_df.loc[values.index, "width"] = (
+                        transform(values + width / 2) - transform(values - width / 2)
                     )
 
         return out_df
